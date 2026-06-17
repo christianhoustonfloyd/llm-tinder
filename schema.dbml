@@ -1,0 +1,120 @@
+// LLM Tinder — mirrors prisma/schema.prisma for the schema-viz MCP viewer.
+// Field notes use the convention:  note: 'What it is || Why it matters'
+// Table notes (Note: '...') explain why each table exists, in plain English.
+// The Project note is the whole-schema overview shown in the collapsible panel.
+// Run `/schema` (or ask to "render the schema") to see the interactive diagram.
+
+Project "LLM Tinder" {
+  Note: '''
+  LLM Tinder is a playful, dating-app-style way to find the AI model that fits you. Instead of swiping on people, you swipe on language models, and the ones you like become your matches.
+
+  A database works best when each table has one clear job. Cramming everything into a single giant table makes it slow, repetitive, and easy to break. So this schema is split into small, focused tables that link together like Lego bricks. The lines between tables show those links.
+
+  Accounts and login (User, Account, Session, VerificationToken): these track who you are and safely remember that you are signed in, so you do not retype your password on every page.
+
+  The swipe experience (AiModel, Swipe): AiModel is the deck of profiles you swipe on. Swipe records every left or right decision, which is how the app hides the models you passed and remembers the ones you matched with.
+
+  Tastes and matching (Feature, AiModelFeature, UserPreference): these describe what each model can do and what you personally care about, so the app can later show how well a model fits your preferences.
+
+  Tip: every table has its own "Why this table matters" note, and you can press Explain on any table to read what each field means in plain English.
+  '''
+}
+
+Table User {
+  Note: 'The list of people who signed up. Without it the app would not know who is swiping, or whose matches belong to whom.'
+  id           varchar [pk, note: 'A unique ID automatically given to each person. || Every other table points to a person using this ID, so there is never any mix-up about who is who.']
+  email        varchar [unique, not null, note: 'The email address used to sign up. || It is how someone logs in, and marking it unique stops two accounts sharing one email.']
+  name         varchar [note: 'The display name to greet the person (optional). || Makes the app feel personal, but stays optional so signing up is fast.']
+  image        varchar [note: 'A link to a profile picture (optional). || Lets the app show an avatar later if you want one.']
+  passwordHash varchar [note: 'A scrambled, locked-up version of the password. || Storing the real password would be unsafe, so only this protected version is kept.']
+  createdAt    timestamp [not null, note: 'The moment the account was created. || Useful for sorting users and seeing how long someone has been around.']
+  updatedAt    timestamp [not null, note: 'The moment the account was last changed. || Lets the app track when a profile was edited.']
+}
+
+Table Account {
+  Note: 'Behind-the-scenes login plumbing. It lets people sign in with an outside service such as Google later, on top of email and password.'
+  id                varchar [pk, note: 'A unique ID for this linked login. || Identifies one connection to an outside sign-in service.']
+  userId            varchar [not null, note: 'Which person this login belongs to. || Connects an outside account back to a real user in this app.']
+  type              varchar [not null, note: 'The kind of login (for example oauth). || Tells the app how this sign-in method works.']
+  provider          varchar [not null, note: 'The outside service name, such as google. || Identifies who is vouching for the person.']
+  providerAccountId varchar [not null, note: 'The person ID over at that outside service. || Lets the app recognise the same person when they come back.']
+  access_token      varchar [note: 'A temporary key from the outside service. || Used briefly to confirm the sign-in; not a password.']
+  refresh_token     varchar [note: 'A key used to get a fresh access token. || Keeps the outside login working without asking the person again.']
+  expires_at        int [note: 'When the access key stops working. || So the app knows when it must refresh the login.']
+  scope             varchar [note: 'What the outside login is allowed to access. || Limits the app to only what the person agreed to share.']
+}
+
+Table Session {
+  Note: 'Remembers that a person is currently logged in, so they do not have to type their password on every single page.'
+  id           varchar [pk, note: 'A unique ID for one login session. || Identifies a single time someone is signed in.']
+  sessionToken varchar [unique, not null, note: 'A secret ticket that proves the person is logged in. || The browser shows this ticket instead of re-entering a password.']
+  userId       varchar [not null, note: 'Which person is logged in. || Links the active session to the right user.']
+  expires      timestamp [not null, note: 'When the login ticket runs out. || Automatically logs people out after a while for safety.']
+}
+
+Table VerificationToken {
+  Note: 'Holds short-lived codes for things like email sign-in links, proving an email really belongs to the person before letting them in.'
+  identifier varchar [not null, note: 'Who the code is for, usually an email address. || Ties the one-time code to the right person.']
+  token      varchar [unique, not null, note: 'The one-time secret code itself. || Confirms the person controls that email; works only once.']
+  expires    timestamp [not null, note: 'When the code stops working. || Codes expire quickly so a leaked one cannot be reused.']
+}
+
+Table AiModel {
+  Note: 'The deck of AI models people swipe on. These are the dating profiles of the app, one card per model.'
+  id                 varchar [pk, note: 'A unique ID for each AI model. || Swipes and features point at a model using this ID.']
+  name               varchar [not null, note: 'The model name, such as Claude Opus 4.8. || The headline shown on the swipe card.']
+  provider           varchar [not null, note: 'The company that makes it, such as Anthropic. || Helps people recognise and compare models at a glance.']
+  tagline            varchar [note: 'A short catchy one-liner. || Gives the card personality, like a dating bio headline.']
+  description        text [note: 'A longer paragraph about the model. || Lets someone learn what the model is good at before deciding.']
+  imageUrl           varchar [note: 'A link to a logo or picture (optional). || Makes the card more visual when available.']
+  contextWindow      int [note: 'How much text the model can read at once, in tokens. || A key spec people weigh when choosing a model.']
+  releaseDate        timestamp [note: 'When the model came out. || Shows how new or modern a model is.']
+  inputPricePerMTok  float [note: 'Cost to send it one million tokens of input. || Lets budget-conscious users compare running costs.']
+  outputPricePerMTok float [note: 'Cost for one million tokens it writes back. || Output usually costs more, so this matters for comparisons.']
+  isActive           boolean [not null, note: 'Whether the model still appears in the deck. || Lets you retire a model without deleting its history.']
+  createdAt          timestamp [not null, note: 'When this model was added to the app. || Used to order the deck and for bookkeeping.']
+  updatedAt          timestamp [not null, note: 'When this model entry was last edited. || Tracks updates to the card details.']
+}
+
+Table Swipe {
+  Note: 'The heart of the app. Every left or right swipe is saved here. This is how the app hides models you passed and remembers the ones you liked.'
+  id        varchar [pk, note: 'A unique ID for one swipe. || Identifies a single decision a person made.']
+  userId    varchar [not null, note: 'Who did the swiping. || Keeps each persons swipes separate from everyone elses.']
+  aiModelId varchar [not null, note: 'Which model was swiped on. || Links the decision to the exact model card.']
+  direction varchar [not null, note: 'LEFT means pass, RIGHT means like. || A RIGHT swipe is exactly what creates a match; a LEFT swipe hides the model.']
+  createdAt timestamp [not null, note: 'When the swipe happened. || Lets the matches list show newest first.']
+}
+
+Table Feature {
+  Note: 'A shared list of AI abilities such as Vision or Coding. Keeping them in one place means every model can reuse the same clean labels.'
+  id       varchar [pk, note: 'A unique ID for each feature. || Models link to a feature using this ID.']
+  name     varchar [unique, not null, note: 'The feature name, such as Reasoning. || The label shown as a chip on a model card; unique avoids duplicates.']
+  category varchar [note: 'A grouping such as speed or price. || Lets features be organised and filtered later.']
+}
+
+Table AiModelFeature {
+  Note: 'The bridge that connects models to their features. It is what lets one model have many features and one feature belong to many models.'
+  id        varchar [pk, note: 'A unique ID for one model-and-feature link. || Identifies a single pairing.']
+  aiModelId varchar [not null, note: 'Which model. || One half of the connection.']
+  featureId varchar [not null, note: 'Which feature. || The other half of the connection.']
+  value     varchar [note: 'An optional detail, such as 200K for context. || Adds a specific number or note to a feature for that model.']
+  note      varchar [note: 'Any extra free-text remark (optional). || Room for a small clarification when needed.']
+}
+
+Table UserPreference {
+  Note: 'Stores what each person says they care about. Later this powers showing how well a model matches your own tastes.'
+  id        varchar [pk, note: 'A unique ID for one saved preference. || Identifies a single thing a person cares about.']
+  userId    varchar [not null, note: 'Whose preference this is. || Keeps each persons tastes private to them.']
+  featureId varchar [not null, note: 'Which feature they care about. || Points at the ability they want, such as Vision.']
+  weight    int [note: 'How much they care, on a small scale. || Lets the app rank matches by what matters most to the person.']
+  createdAt timestamp [not null, note: 'When the preference was saved. || Useful for tracking changes in taste over time.']
+}
+
+Ref: Account.userId > User.id
+Ref: Session.userId > User.id
+Ref: Swipe.userId > User.id
+Ref: Swipe.aiModelId > AiModel.id
+Ref: AiModelFeature.aiModelId > AiModel.id
+Ref: AiModelFeature.featureId > Feature.id
+Ref: UserPreference.userId > User.id
+Ref: UserPreference.featureId > Feature.id

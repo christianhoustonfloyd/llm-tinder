@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "schema-explain",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "/Users/christianhouston-floyd/tools/schema-viz-mcp/scripts/serve-file.js",
+        "/Users/christianhouston-floyd/Desktop/Claude Code Course/Round 3, net new, Tinder AI project (not related to the others)/schema.dbml",
+        "4488"
+      ],
+      "port": 4488,
+      "autoPort": true
+    }
+  ]
+}
