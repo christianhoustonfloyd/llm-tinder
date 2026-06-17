@@ -27,8 +27,11 @@ export default function WeatherWidget() {
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => load(pos.coords.latitude, pos.coords.longitude),
-        // Denied or unavailable → fall back to a default city.
+        // Denied, unavailable, or timed out → fall back to a default city.
         () => load(FALLBACK_LOCATION.latitude, FALLBACK_LOCATION.longitude),
+        // Without a timeout, an unanswered permission prompt hangs forever
+        // and neither callback fires. Cap it so we always resolve.
+        { timeout: 8000, maximumAge: 600000 },
       );
     } else {
       load(FALLBACK_LOCATION.latitude, FALLBACK_LOCATION.longitude);
