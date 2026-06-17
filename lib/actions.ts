@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth, signOut } from "@/lib/auth";
+import { auth, signIn, signOut } from "@/lib/auth";
 import { recordSwipe } from "@/lib/swipes";
 import type { SwipeDirection } from "@/lib/types";
 
@@ -16,6 +16,10 @@ export async function swipeAction(aiModelId: string, direction: SwipeDirection) 
   await recordSwipe(session.user.id, aiModelId, direction);
   revalidatePath("/swipe");
   revalidatePath("/matches");
+}
+
+export async function signInWithGoogle() {
+  await signIn("google", { redirectTo: "/swipe" });
 }
 
 export async function signOutAction() {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { registerAction, type RegisterState } from "./actions";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 function Field({
   label,
@@ -58,6 +59,8 @@ export default function RegisterPage() {
             {pending ? "Creating…" : "Create account"}
           </button>
         </form>
+
+        <GoogleSignInButton />
 
         <p className="mt-6 text-center text-sm text-neutral-500">
           Already have an account?{" "}

@@ -25,8 +25,9 @@ Table User {
   id           varchar [pk, note: 'A unique ID automatically given to each person. || Every other table points to a person using this ID, so there is never any mix-up about who is who.']
   email        varchar [unique, not null, note: 'The email address used to sign up. || It is how someone logs in, and marking it unique stops two accounts sharing one email.']
   name         varchar [note: 'The display name to greet the person (optional). || Makes the app feel personal, but stays optional so signing up is fast.']
-  image        varchar [note: 'A link to a profile picture (optional). || Lets the app show an avatar later if you want one.']
-  passwordHash varchar [note: 'A scrambled, locked-up version of the password. || Storing the real password would be unsafe, so only this protected version is kept.']
+  image         varchar [note: 'A link to a profile picture (optional). || Lets the app show an avatar later if you want one.']
+  emailVerified timestamp [note: 'When the email was confirmed (set on Google sign-in). || Required by the Auth.js adapter for OAuth sign-ups.']
+  passwordHash  varchar [note: 'A scrambled, locked-up version of the password. || Storing the real password would be unsafe, so only this protected version is kept.']
   createdAt    timestamp [not null, note: 'The moment the account was created. || Useful for sorting users and seeing how long someone has been around.']
   updatedAt    timestamp [not null, note: 'The moment the account was last changed. || Lets the app track when a profile was edited.']
 }

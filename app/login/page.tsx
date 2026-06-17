@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { loginAction, type LoginState } from "./actions";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(
@@ -42,6 +43,8 @@ function LoginForm() {
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <GoogleSignInButton />
 
       <p className="mt-6 text-center text-sm text-neutral-500">
         No account?{" "}

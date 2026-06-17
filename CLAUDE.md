@@ -19,12 +19,12 @@ on each model's feature set.
 - **Prisma 6** ORM on **Supabase Postgres** — pooled `DATABASE_URL` (:6543, `pgbouncer=true`) for
   the app, direct `DIRECT_URL` (:5432) for schema work. Pinned to v6 on purpose — v7 requires a
   driver-adapter setup we don't need yet. Schema is applied with `prisma db push` (no migration history).
-- **Auth.js (NextAuth v5 beta)** with `@auth/prisma-adapter`, Credentials provider, **JWT sessions**.
+- **Auth.js (NextAuth v5 beta)** with `@auth/prisma-adapter`, **Credentials + Google OAuth** providers, **JWT sessions**.
 - **Tailwind CSS v4** + **framer-motion** for the draggable swipe cards.
 
 ## Data model (`prisma/schema.prisma`)
 
-- **User** (+ Auth.js `Account` / `Session` / `VerificationToken`) — `passwordHash` holds the bcrypt hash.
+- **User** (+ Auth.js `Account` / `Session` / `VerificationToken`) — `passwordHash` holds the bcrypt hash; `emailVerified` is set on OAuth sign-ups (the adapter requires it).
 - **AiModel** — the swipeable "profiles": name, provider, tagline, description, contextWindow, pricing, `isActive`.
 - **Swipe** — canonical record. `direction` is a Postgres `enum SwipeDirection` (`LEFT | RIGHT`).
   - Unique `(userId, aiModelId)` → one decision per user per model.
@@ -47,10 +47,10 @@ lib/
   prisma.ts                   # PrismaClient singleton
   auth.ts                     # NextAuth config (Credentials + adapter + JWT)
   swipes.ts                   # data layer: getDeck / recordSwipe / getMatches (+ DTO mapping)
-  actions.ts                  # "use server": swipeAction, signOutAction
+  actions.ts                  # "use server": swipeAction, signInWithGoogle, signOutAction
   types.ts                    # ModelCardData / MatchData / SwipeDirection
 components/
-  NavBar, SwipeDeck, ModelCard, SwipeButtons, MatchList
+  NavBar, SwipeDeck, ModelCard, SwipeButtons, MatchList, GoogleSignInButton
 prisma/
   schema.prisma  seed.ts       # no migrations/ — schema applied via `prisma db push`
 types/next-auth.d.ts          # adds user.id to Session/JWT
@@ -68,7 +68,7 @@ types/next-auth.d.ts          # adds user.id to Session/JWT
 ## Commands
 
 ```bash
-npm run dev          # start the app (http://localhost:3000)
+npm run dev -- -p 3100   # start the app on :3100 (the port registered for Google OAuth)
 npx prisma db push   # apply schema.prisma changes to Supabase (use this, not migrate dev)
 npm run db:seed      # seed AI models + features (idempotent)
 npm run db:studio    # browse the DB in Prisma Studio
@@ -76,7 +76,8 @@ npm run build        # production build
 npm run lint         # eslint
 ```
 
-Env (`.env`, see `.env.example`): `DATABASE_URL` (pooled), `DIRECT_URL` (direct), `AUTH_SECRET`.
+Env (`.env`, see `.env.example`): `DATABASE_URL` (pooled), `DIRECT_URL` (direct), `AUTH_SECRET`,
+`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`.
 
 ## Database: Supabase Postgres
 
@@ -92,8 +93,33 @@ The app runs on **Supabase Postgres** (project ref `qjtidopotedjqvvdecje`).
   Prisma connects as the table-owner `postgres` role, which bypasses RLS — this just closes
   Supabase's public Data API. Only add policies if you start using the Supabase client (anon key).
 - A **Supabase MCP** is configured in `.mcp.json` (project scope) for inspecting the DB directly.
-- Auth still uses Credentials (email/password). Swapping to **Supabase Auth** later is optional —
-  the Auth.js adapter tables (`Account`/`Session`/`VerificationToken`) are already in place for OAuth.
+
+## Auth
+
+- **Providers:** email/password (Credentials) **and Google OAuth**, both in `lib/auth.ts`; **JWT** sessions.
+- **Google OAuth (local):** reads `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`. The app must run on the port
+  registered in Google Cloud — **`http://localhost:3100`** — with redirect URI
+  `http://localhost:3100/api/auth/callback/google`, and the signing-in Google account must be a
+  **test user** while the consent screen is in Testing mode. `AUTH_URL` pins the callback base.
+- The adapter tables (`Account` / `Session` / `VerificationToken`) link OAuth logins to `User` rows.
+  `allowDangerousEmailAccountLinking` lets Google attach to an existing same-email account.
+- Swapping to **Supabase Auth** later is still an optional alternative.
+
+## Deploying to Vercel (next step)
+
+The database is already cloud-hosted, so deploying is mostly wiring env + OAuth:
+
+1. Import the GitHub repo (`christianhoustonfloyd/llm-tinder`) into Vercel.
+2. Set env vars in Vercel → Settings → Environment Variables: `DATABASE_URL`, `DIRECT_URL`,
+   `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`. Set `AUTH_URL` to the deployed URL
+   (`https://<app>.vercel.app`) once known — **do not** reuse `localhost:3100`.
+3. The pooled `DATABASE_URL` (:6543, `pgbouncer`) is the right one for Vercel's serverless functions.
+4. Prisma client is built on deploy via the `postinstall: prisma generate` script (already in package.json).
+5. Google Cloud → your OAuth client: add the production redirect URI
+   `https://<app>.vercel.app/api/auth/callback/google` (keep the localhost one too) and add the
+   domain to Authorized JavaScript origins.
+6. The Google consent screen is in **Testing** — only listed test users can sign in until you
+   publish the app.
 
 ## Schema diagram
 
